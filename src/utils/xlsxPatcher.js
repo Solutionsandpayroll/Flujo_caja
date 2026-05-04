@@ -190,7 +190,11 @@ function buildNewRowXml(rowNum, cells, templateRowXml) {
  * fórmulas compartidas, dataValidation, dimension) y sqref=.
  */
 function renumberAfter(xml, afterRow, inc) {
-  const shift = n => Number(n) > afterRow ? Number(n) + inc : Number(n)
+  const shift    = n => Number(n) >  afterRow ? Number(n) + inc : Number(n)
+  // shiftEnd: para el extremo FINAL de un rango sqref, usamos >= para que el rango
+  // se extienda cuando la nueva fila se inserta justo al final del rango.
+  // Ejemplo: sqref="J33:J80" + insertar tras fila 80 → sqref="J33:J81"
+  const shiftEnd = n => Number(n) >= afterRow ? Number(n) + inc : Number(n)
 
   // 1. Atributos r= en <row>
   xml = xml.replace(/<row\b[^>]*>/g, tag =>
@@ -220,11 +224,30 @@ function renumberAfter(xml, afterRow, inc) {
     (m, col, n) => `ref="${col}${shift(n)}"`
   )
 
-  // 5. sqref= (dataValidation, conditionalFormatting) puede ser lista: "A5:A10 B5:B10"
-  xml = xml.replace(/\bsqref="([^"]*)"/g, (m, val) => {
-    const updated = val.replace(/([A-Z]+)(\d+)/g, (r, col, n) => `${col}${shift(n)}`)
-    return `sqref="${updated}"`
-  })
+  // Helper que procesa una lista de rangos sqref (separados por espacio):
+  // - Extremo INICIAL: shift normal (>)
+  // - Extremo FINAL:   shiftEnd (>=) para extender al insertar en el límite
+  function processSqrefList(val) {
+    const parts = val.split(/\s+/).filter(Boolean)
+    return parts.map(part => {
+      const colon = part.indexOf(':')
+      if (colon !== -1) {
+        const startFixed = part.slice(0, colon).replace(/([A-Z]+)(\d+)/, (r, c, n) => c + shift(n))
+        const endFixed   = part.slice(colon + 1).replace(/([A-Z]+)(\d+)/, (r, c, n) => c + shiftEnd(n))
+        return startFixed + ':' + endFixed
+      }
+      return part.replace(/([A-Z]+)(\d+)/, (r, c, n) => c + shift(n))
+    }).join(' ')
+  }
+
+  // 5a. sqref="..." como atributo (formato tradicional de conditionalFormatting / dataValidation)
+  xml = xml.replace(/\bsqref="([^"]*)"/g, (m, val) => `sqref="${processSqrefList(val)}"`)
+
+  // 5b. <xm:sqref>J33:J80</xm:sqref> — formato extendido de CF en Excel 2013+
+  //     Las reglas de colorScale, dataBar, iconSet usan este elemento en extLst.
+  xml = xml.replace(/<xm:sqref>([^<]*)<\/xm:sqref>/g,
+    (m, val) => `<xm:sqref>${processSqrefList(val)}</xm:sqref>`
+  )
 
   return xml
 }

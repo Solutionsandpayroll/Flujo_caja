@@ -1,9 +1,11 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import * as XLSX from 'xlsx'
 import MonthViewer from './MonthViewer'
+import MonthViewerGuatemala from './MonthViewerGuatemala'
 import ReembolsosPanel from './ReembolsosPanel'
 import { MONTHS, isMonthSheet, monthSheetIndex } from '../utils/excelParser'
 import { patchXlsx } from '../utils/xlsxPatcher'
+import { saveHandle, loadHandle, clearHandle, requestPermission } from '../utils/fileHandleStore'
 
 /**
  * ExcelEditor
@@ -21,7 +23,32 @@ function ExcelEditor() {
   const [error, setError]           = useState('')
   const [pendingEdits, setPendingEdits]           = useState({})  // { sheetName: { "row,col": value } }
   const [pendingInsertions, setPendingInsertions] = useState({})  // { sheetName: [{ id, insertAfterRow, cells, sectionKey }] }
-  const [saveStatus, setSaveStatus] = useState('idle') // 'idle' | 'saving' | 'saved'
+  const [saveStatus, setSaveStatus]     = useState('idle') // 'idle' | 'saving' | 'saved'
+  const [savedHandle, setSavedHandle]   = useState(null)   // handle guardado en IndexedDB (aún sin cargar)
+  const [savedFileName, setSavedFileName] = useState('')   // nombre del archivo guardado
+  const [reconnecting, setReconnecting] = useState(false)
+
+  // ──────────────────────────────────────────────
+  // Al montar: verificar si hay un handle guardado en IndexedDB
+  // ──────────────────────────────────────────────
+  useEffect(() => {
+    loadHandle('main').then(async handle => {
+      if (!handle) return
+      try {
+        // Obtener el nombre del archivo sin pedir permiso aún
+        const file = await handle.getFile().catch(() => null)
+        if (file) {
+          setSavedHandle(handle)
+          setSavedFileName(file.name)
+        } else {
+          // El archivo ya no existe en esa ruta
+          clearHandle('main')
+        }
+      } catch {
+        clearHandle('main')
+      }
+    }).catch(() => {})
+  }, [])
 
   const totalEdits      = Object.values(pendingEdits).reduce((s, e) => s + Object.keys(e).length, 0)
   const totalInsertions = Object.values(pendingInsertions).reduce((s, a) => s + a.length, 0)
@@ -55,6 +82,11 @@ function ExcelEditor() {
       setRawBuffer(buffer)   // guardar buffer original para preservar formato al guardar
       setFileName(file.name)
       setWorkbook(wb)
+
+      // Persistir handle en IndexedDB para reconexión futura
+      saveHandle('main', handle).catch(() => {})
+      setSavedHandle(null)
+      setSavedFileName('')
 
       // Auto-seleccionar el primer mes con datos
       const first = wb.SheetNames.find(isMonthSheet) || wb.SheetNames[0] || ''
@@ -173,6 +205,43 @@ function ExcelEditor() {
     setPendingEdits({})
     setPendingInsertions({})
     setSaveStatus('idle')
+    // Limpiar también el handle guardado
+    clearHandle('main').catch(() => {})
+    setSavedHandle(null)
+    setSavedFileName('')
+  }
+
+  // ──────────────────────────────────────────────
+  // Reconectar desde handle guardado
+  // ──────────────────────────────────────────────
+  const handleReconnect = async () => {
+    if (!savedHandle) return
+    setReconnecting(true)
+    setError('')
+    try {
+      const granted = await requestPermission(savedHandle)
+      if (!granted) {
+        setError('Permiso denegado. Haz clic en "Abrir Excel" para buscar el archivo manualmente.')
+        setReconnecting(false)
+        return
+      }
+      const file   = await savedHandle.getFile()
+      const buffer = await file.arrayBuffer()
+      const wb     = XLSX.read(buffer, { type: 'array' })
+
+      setFileHandle(savedHandle)
+      setRawBuffer(buffer)
+      setFileName(file.name)
+      setWorkbook(wb)
+      setSavedHandle(null)
+      setSavedFileName('')
+
+      const first = wb.SheetNames.find(isMonthSheet) || wb.SheetNames[0] || ''
+      setSelectedSheet(first)
+    } catch (err) {
+      setError('No se pudo reconectar: ' + err.message)
+    }
+    setReconnecting(false)
   }
 
   // ──────────────────────────────────────────────
@@ -180,13 +249,25 @@ function ExcelEditor() {
   // ──────────────────────────────────────────────
   const sheetExists = (name) => workbook?.SheetNames.includes(name) ?? false
 
+  // Detección de país por nombre de archivo
+  const isGuatemala = fileName.toLowerCase().includes('guatemala')
+
   // Tabs dinámicos: meses ordenados por mes del año + resto de hojas
+  // Excluye hojas ocultas (Hidden: 1) o muy ocultas (Hidden: 2) del workbook
   const displayTabs = useMemo(() => {
     if (!workbook) return []
-    const monthTabs = workbook.SheetNames
+    const wbSheets = workbook.Workbook?.Sheets ?? []
+    const hiddenSet = new Set(
+      wbSheets.reduce((acc, s, i) => {
+        if (s.Hidden && s.Hidden > 0) acc.push(workbook.SheetNames[i])
+        return acc
+      }, [])
+    )
+    const visibleNames = workbook.SheetNames.filter(n => !hiddenSet.has(n))
+    const monthTabs = visibleNames
       .filter(isMonthSheet)
       .sort((a, b) => monthSheetIndex(a) - monthSheetIndex(b))
-    const otherTabs = workbook.SheetNames.filter(s => !isMonthSheet(s))
+    const otherTabs = visibleNames.filter(s => !isMonthSheet(s))
     return [...monthTabs, ...otherTabs]
   }, [workbook])
 
@@ -272,19 +353,46 @@ function ExcelEditor() {
 
       {/* ── Zona de apertura (sin archivo) ── */}
       {!workbook && (
-        <div className="drop-zone" onClick={handleOpenFile}>
+        <div className="drop-zone" onClick={!savedHandle ? handleOpenFile : undefined}
+             style={savedHandle ? { cursor: 'default' } : {}}>
           <div className="drop-zone-content">
             <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
               <rect x="3" y="3" width="18" height="18" rx="2"/>
               <path d="M3 9h18M9 21V9"/>
             </svg>
-            <div className="drop-zone-text">
-              <span className="drop-zone-title">Seleccionar archivo Excel</span>
-              <span className="drop-zone-subtitle">
-                Haz clic para buscar un archivo .xlsx en tu computador
-              </span>
-            </div>
-            <span className="drop-zone-hint">Solo archivos .xlsx · Compatible con Chrome y Edge</span>
+
+            {/* ── Reconexión disponible ── */}
+            {savedHandle ? (
+              <>
+                <div className="drop-zone-text">
+                  <span className="drop-zone-title">Archivo reciente detectado</span>
+                  <span className="drop-zone-subtitle reconnect-filename">{savedFileName}</span>
+                </div>
+                <div className="reconnect-actions">
+                  <button
+                    className="btn-reconnect"
+                    onClick={handleReconnect}
+                    disabled={reconnecting}
+                  >
+                    {reconnecting ? 'Conectando…' : '⚡ Reconectar'}
+                  </button>
+                  <button className="btn-reconnect-other" onClick={handleOpenFile}>
+                    Abrir otro archivo
+                  </button>
+                </div>
+                <span className="drop-zone-hint">Se cargará el archivo tal como está en disco ahora mismo</span>
+              </>
+            ) : (
+              <>
+                <div className="drop-zone-text">
+                  <span className="drop-zone-title">Seleccionar archivo Excel</span>
+                  <span className="drop-zone-subtitle">
+                    Haz clic para buscar un archivo .xlsx en tu computador
+                  </span>
+                </div>
+                <span className="drop-zone-hint">Solo archivos .xlsx · Compatible con Chrome y Edge</span>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -314,7 +422,8 @@ function ExcelEditor() {
                 </button>
               )
             })}
-            {/* Tab especial: Automatización - Reembolsos */}
+            {/* Tab especial: Automatización - Reembolsos (solo Colombia) */}
+            {!isGuatemala && (
             <button
               className={`sheet-tab tab-special tab-reembolsos ${selectedSheet === '__REEMBOLSOS__' ? 'active' : ''}`}
               onClick={() => setSelectedSheet('__REEMBOLSOS__')}
@@ -326,11 +435,26 @@ function ExcelEditor() {
               </svg>
               Reembolsos
             </button>
+            )}
           </div>
 
-          {/* Vista de mes */}
-          {isMonthSheet(selectedSheet) && sheetExists(selectedSheet) && (
+          {/* Vista de mes — Colombia */}
+          {!isGuatemala && isMonthSheet(selectedSheet) && sheetExists(selectedSheet) && (
             <MonthViewer
+              rows={sheetRows}
+              sheetName={selectedSheet}
+              edits={pendingEdits[selectedSheet] || {}}
+              onCellEdit={handleCellEdit}
+              insertions={pendingInsertions[selectedSheet] || []}
+              onAddRow={handleAddRow}
+              onInsertedRowEdit={handleInsertedRowEdit}
+              onDeleteInsertedRow={handleDeleteInsertedRow}
+            />
+          )}
+
+          {/* Vista de mes — Guatemala */}
+          {isGuatemala && isMonthSheet(selectedSheet) && sheetExists(selectedSheet) && (
+            <MonthViewerGuatemala
               rows={sheetRows}
               sheetName={selectedSheet}
               edits={pendingEdits[selectedSheet] || {}}

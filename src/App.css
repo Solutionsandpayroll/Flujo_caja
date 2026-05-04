@@ -457,6 +457,46 @@ input.select-input::placeholder {
   margin-top: 0.5rem;
 }
 
+/* Reconexión */
+.reconnect-filename {
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.reconnect-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.btn-reconnect {
+  padding: 0.6rem 1.4rem;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-reconnect:hover:not(:disabled) { background: var(--primary-dark, #1d4ed8); }
+.btn-reconnect:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.btn-reconnect-other {
+  padding: 0.6rem 1.2rem;
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.btn-reconnect-other:hover { border-color: var(--primary); color: var(--primary); }
+
 /* File Preview */
 .file-preview {
   display: flex;

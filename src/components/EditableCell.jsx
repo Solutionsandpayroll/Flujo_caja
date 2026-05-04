@@ -13,7 +13,7 @@ import { formatCOP } from '../utils/excelParser'
  *   raw       {any}      Valor original del parser.
  *   edits     {object}   Ediciones pendientes { "row,col": value }.
  *   onCellEdit {fn}      (rowIdx, colIdx, value) → void.
- *   format    {string}   'text' | 'cop'.
+   *   format    {string}   'text' | 'cop' | 'number'.
  *   options   {string[]} Si se pasa, la celda usa <select> con estas opciones.
  *   badgeMap  {object}   { 'valor en lowercase': 'clase CSS badge' } para mostrar badge.
  *   className {string}   Clases extra para el <td>.
@@ -58,6 +58,11 @@ function EditableCell({
       const n = typeof currentVal === 'number' ? currentVal : parseFloat(currentVal)
       return isNaN(n) ? String(currentVal) : formatCOP(n)
     }
+    if (format === 'number') {
+      const n = typeof currentVal === 'number' ? currentVal : parseFloat(currentVal)
+      if (isNaN(n)) return String(currentVal)
+      return n.toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    }
     return String(currentVal)
   }
 
@@ -91,8 +96,8 @@ function EditableCell({
       <td className={`${className} cell-editing`}>
         <input
           ref={inputRef}
-          type={format === 'cop' ? 'number' : 'text'}
-          step={format === 'cop' ? 'any' : undefined}
+          type={format === 'cop' || format === 'number' ? 'number' : 'text'}
+          step={format === 'cop' || format === 'number' ? 'any' : undefined}
           className="cell-input"
           value={draft}
           onChange={e => setDraft(e.target.value)}
