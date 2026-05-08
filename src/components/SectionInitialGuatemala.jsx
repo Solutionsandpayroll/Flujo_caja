@@ -13,7 +13,8 @@ const ESTADO_OPTIONS = ['Pagado', 'Sin Pagar']
 const ESTADO_BADGE   = { 'pagado': 'badge badge-success', 'sin pagar': 'badge badge-warning' }
 
 export default function SectionInitialGuatemala({
-  rows, edits, onCellEdit, insertions, onAddRow, onInsertedRowEdit, onDeleteInsertedRow
+  rows, edits, onCellEdit, insertions, onAddRow, onInsertedRowEdit, onDeleteInsertedRow,
+  currencyLabel = 'QTQ'
 }) {
   const [activeTab,    setActiveTab]    = useState('bancos')
   const [filterEstado, setFilterEstado] = useState('')
@@ -65,7 +66,7 @@ export default function SectionInitialGuatemala({
             <thead>
               <tr>
                 <th>Descripción</th>
-                <th className="col-right">Valor QTQ</th>
+                <th className="col-right">Valor {currencyLabel}</th>
                 <th className="col-right">Valor USD</th>
               </tr>
             </thead>
@@ -140,7 +141,7 @@ export default function SectionInitialGuatemala({
                 <tr>
                   <th>Estado</th>
                   <th>Descripción</th>
-                  <th className="col-right">Valor QTQ</th>
+                  <th className="col-right">Valor {currencyLabel}</th>
                   <th className="col-right">Valor USD</th>
                   <th style={{ width: '32px' }}></th>
                 </tr>

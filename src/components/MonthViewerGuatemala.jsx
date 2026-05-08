@@ -12,7 +12,8 @@ import SectionCXPGuatemala from './SectionCXPGuatemala'
 
 export default function MonthViewerGuatemala({
   rows, sheetName, edits, onCellEdit,
-  insertions, onAddRow, onInsertedRowEdit, onDeleteInsertedRow
+  insertions, onAddRow, onInsertedRowEdit, onDeleteInsertedRow,
+  currencyLabel = 'QTQ'
 }) {
   const parsed = useMemo(() => parseMonthSheetGuatemala(rows), [rows])
 
@@ -39,6 +40,7 @@ export default function MonthViewerGuatemala({
         onAddRow={onAddRow}
         onInsertedRowEdit={onInsertedRowEdit}
         onDeleteInsertedRow={onDeleteInsertedRow}
+        currencyLabel={currencyLabel}
       />
       <SectionCXPGuatemala
         sections={sectionCXP}
@@ -48,6 +50,7 @@ export default function MonthViewerGuatemala({
         onAddRow={onAddRow}
         onInsertedRowEdit={onInsertedRowEdit}
         onDeleteInsertedRow={onDeleteInsertedRow}
+        currencyLabel={currencyLabel}
       />
     </div>
   )

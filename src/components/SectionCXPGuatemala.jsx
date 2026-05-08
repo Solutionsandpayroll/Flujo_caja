@@ -19,7 +19,8 @@ const ESTADO_BADGE   = {
 }
 
 export default function SectionCXPGuatemala({
-  sections, edits, onCellEdit, insertions, onAddRow, onInsertedRowEdit, onDeleteInsertedRow
+  sections, edits, onCellEdit, insertions, onAddRow, onInsertedRowEdit, onDeleteInsertedRow,
+  currencyLabel = 'QTQ'
 }) {
   const [activeIdx,    setActiveIdx]    = useState(0)
   const [filterEstado, setFilterEstado] = useState('')
@@ -105,7 +106,7 @@ export default function SectionCXPGuatemala({
             <tr>
               <th>{refLabel}</th>
               <th>Proveedor</th>
-              <th className="col-right">Valor QTQ</th>
+              <th className="col-right">Valor {currencyLabel}</th>
               <th className="col-right">Valor USD</th>
               <th>Vencimiento</th>
               <th>Estado</th>
