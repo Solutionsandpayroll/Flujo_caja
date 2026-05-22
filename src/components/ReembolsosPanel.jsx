@@ -114,7 +114,7 @@ function ReembolsosPanel({ workbook, onApplyReembolsos, isGuatemalaFormat = fals
       .map((row, i) => ({
         id:             `reimb-${now}-${i}`,
         insertAfterRow: lastRow,
-        sectionKey:     `cxp:${sub.title}`,
+        sectionKey:     isGuatemalaFormat ? `gt:cxp:${sub.title}` : `cxp:${sub.title}`,
         cells: {
           [colDesc]: row.generatedDesc,
           ...(row.valorAPagar ? { [colValor]: row.valorAPagar } : {}),
