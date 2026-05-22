@@ -2,16 +2,17 @@
 import * as XLSX from 'xlsx'
 import MonthViewer from './MonthViewer'
 import MonthViewerGuatemala from './MonthViewerGuatemala'
+import MonthViewerGlobal from './MonthViewerGlobal'
 import ReembolsosPanel from './ReembolsosPanel'
 import { isMonthSheet, monthSheetIndex } from '../utils/excelParser'
 import { patchXlsx } from '../utils/xlsxPatcher'
 import { saveHandle, loadHandle, clearHandle, requestPermission } from '../utils/fileHandleStore'
 
-const SLOT_KEYS   = ['colombia', 'guatemala', 'costarica', 'peru']
-const SLOT_LABELS = { colombia: '🇨🇴 Colombia', guatemala: '🇬🇹 Guatemala', costarica: '🇨🇷 Costa Rica', peru: '🇵🇪 Perú' }
+const SLOT_KEYS   = ['colombia', 'guatemala', 'costarica', 'peru', 'global']
+const SLOT_LABELS = { colombia: '🇨🇴 Colombia', guatemala: '🇬🇹 Guatemala', costarica: '🇨🇷 Costa Rica', peru: '🇵🇪 Perú', global: '🌐 Global' }
 
 // Etiqueta de moneda local por país (columna D en la hoja)
-const SLOT_CURRENCY = { colombia: null, guatemala: 'QTQ', costarica: '₡ CRC', peru: 'S/ Sol' }
+const SLOT_CURRENCY = { colombia: null, guatemala: 'QTQ', costarica: '₡ CRC', peru: 'S/ Sol', global: null }
 
 function emptySlot(handle, fileName, buffer, wb) {
   const first = wb.SheetNames.find(isMonthSheet) || wb.SheetNames[0] || ''
@@ -22,10 +23,10 @@ function emptySlot(handle, fileName, buffer, wb) {
 function ExcelEditor() {
   // slots: { colombia: FileSlot | null, guatemala: FileSlot | null }
   // FileSlot: { fileHandle, rawBuffer, fileName, workbook, selectedSheet, pendingEdits, pendingInsertions }
-  const [slots,       setSlots]       = useState({ colombia: null, guatemala: null, costarica: null, peru: null })
-  const [activeSlot,  setActiveSlot]  = useState(null)   // 'colombia' | 'guatemala' | 'costarica' | 'peru' | null
+  const [slots,       setSlots]       = useState({ colombia: null, guatemala: null, costarica: null, peru: null, global: null })
+  const [activeSlot,  setActiveSlot]  = useState(null)   // 'colombia' | 'guatemala' | 'costarica' | 'peru' | 'global' | null
   // savedHandles: handles de IndexedDB pendientes de reconexión (aún sin cargar)
-  const [savedHandles, setSavedHandles] = useState({ colombia: null, guatemala: null, costarica: null, peru: null })
+  const [savedHandles, setSavedHandles] = useState({ colombia: null, guatemala: null, costarica: null, peru: null, global: null })
   const [error,        setError]        = useState('')
   const [saveStatus,   setSaveStatus]   = useState('idle') // 'idle' | 'saving' | 'saved'
   const [reconnecting, setReconnecting] = useState(null)   // null | 'colombia' | 'guatemala'
@@ -39,7 +40,7 @@ function ExcelEditor() {
   const selectedSheet     = current?.selectedSheet     ?? ''
   const pendingEdits      = current?.pendingEdits      ?? {}
   const pendingInsertions = current?.pendingInsertions ?? {}
-  const isGuatemalaFormat = activeSlot !== null && activeSlot !== 'colombia'
+  const isGuatemalaFormat = activeSlot !== null && activeSlot !== 'colombia' && activeSlot !== 'global'
   const currencyLabel     = SLOT_CURRENCY[activeSlot] ?? 'QTQ'
 
   const totalEdits      = Object.values(pendingEdits).reduce((s, e) => s + Object.keys(e).length, 0)
@@ -454,8 +455,7 @@ function ExcelEditor() {
                 </button>
               )
             })}
-            {!isGuatemalaFormat && (
-              <button
+            <button
                 className={`sheet-tab tab-special tab-reembolsos ${selectedSheet === '__REEMBOLSOS__' ? 'active' : ''}`}
                 onClick={() => setSelectedSheet('__REEMBOLSOS__')}
               >
@@ -464,11 +464,22 @@ function ExcelEditor() {
                 </svg>
                 Reembolsos
               </button>
-            )}
           </div>
 
-          {!isGuatemalaFormat && isMonthSheet(selectedSheet) && sheetExists(selectedSheet) && (
+          {activeSlot === 'colombia' && isMonthSheet(selectedSheet) && sheetExists(selectedSheet) && (
             <MonthViewer
+              rows={sheetRows} sheetName={selectedSheet}
+              edits={pendingEdits[selectedSheet] || {}}
+              onCellEdit={handleCellEdit}
+              insertions={pendingInsertions[selectedSheet] || []}
+              onAddRow={handleAddRow}
+              onInsertedRowEdit={handleInsertedRowEdit}
+              onDeleteInsertedRow={handleDeleteInsertedRow}
+            />
+          )}
+
+          {activeSlot === 'global' && isMonthSheet(selectedSheet) && sheetExists(selectedSheet) && (
+            <MonthViewerGlobal
               rows={sheetRows} sheetName={selectedSheet}
               edits={pendingEdits[selectedSheet] || {}}
               onCellEdit={handleCellEdit}
@@ -492,8 +503,8 @@ function ExcelEditor() {
             />
           )}
 
-          {selectedSheet === '__REEMBOLSOS__' && !isGuatemalaFormat && (
-            <ReembolsosPanel workbook={workbook} onApplyReembolsos={handleApplyReembolsos} />
+          {selectedSheet === '__REEMBOLSOS__' && (
+            <ReembolsosPanel workbook={workbook} onApplyReembolsos={handleApplyReembolsos} isGuatemalaFormat={isGuatemalaFormat} />
           )}
 
           {!isMonthSheet(selectedSheet) && selectedSheet !== '__REEMBOLSOS__' && sheetExists(selectedSheet) && (

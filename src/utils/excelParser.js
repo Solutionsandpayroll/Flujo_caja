@@ -93,7 +93,8 @@ const INITIAL_GROUP_MAP = {
   'BANCOS': 'bancos',
   'CLIENTES': 'clientes',
   'PE': 'eor',   // ENERO y FEBRERO usan "PE"
-  'EOR': 'eor'   // MARZO en adelante usan "EOR"
+  'EOR': 'eor',  // MARZO en adelante usan "EOR"
+  'FACTURACIÓN PENDIENTE POR MONETIZAR': 'facturacion'
 }
 
 // ─────────────────────────────────────────────
@@ -136,9 +137,10 @@ export function parseMonthSheet(rows) {
 
 function parseInitialSection(rows) {
   const result = {
-    bancos:   { title: 'BANCOS',   total: null, rows: [] },
-    clientes: { title: 'CLIENTES', total: null, rows: [] },
-    eor:      { title: 'EOR',      total: null, rows: [] }
+    bancos:       { title: 'BANCOS',   total: null, rows: [] },
+    clientes:     { title: 'CLIENTES', total: null, rows: [] },
+    eor:          { title: 'EOR',      total: null, rows: [] },
+    facturacion:  { title: 'FACTURACIÓN PENDIENTE POR MONETIZAR', total: null, rows: [] }
   }
   let currentKey = null
 

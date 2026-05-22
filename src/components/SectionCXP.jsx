@@ -140,7 +140,7 @@ function SectionCXP({ subsections, sheetName, edits, onCellEdit, insertions, onA
               ) : (
                 filteredRows.map((row, i) => (
                   <tr key={i} className={i % 2 === 0 ? 'tr-even' : ''}>
-                    <EditableCell rowIdx={row._row} colIdx={0} raw={row.estado}           edits={edits} onCellEdit={onCellEdit} options={ESTADO_OPTIONS_CXP} badgeMap={ESTADO_BADGE_CXP} />
+                    <EditableCell rowIdx={row._row} colIdx={6} raw={row.estado}           edits={edits} onCellEdit={onCellEdit} options={ESTADO_OPTIONS_CXP} badgeMap={ESTADO_BADGE_CXP} />
                     <EditableCell rowIdx={row._row} colIdx={1} raw={row.semana}           edits={edits} onCellEdit={onCellEdit} format="text" className="col-center" />
                     <EditableCell rowIdx={row._row} colIdx={2} raw={row.factura}          edits={edits} onCellEdit={onCellEdit} format="text" className="td-factura" />
                     <EditableCell rowIdx={row._row} colIdx={3} raw={row.proveedor}        edits={edits} onCellEdit={onCellEdit} format="text" className="td-desc" />
@@ -157,8 +157,8 @@ function SectionCXP({ subsections, sheetName, edits, onCellEdit, insertions, onA
                   <td className="td-new-cell">
                     <select
                       className="new-row-select"
-                      value={ins.cells[0] ?? ''}
-                      onChange={e => onInsertedRowEdit(ins.id, 0, e.target.value)}
+                      value={ins.cells[6] ?? ''}
+                      onChange={e => onInsertedRowEdit(ins.id, 6, e.target.value)}
                     >
                       <option value="">— Estado —</option>
                       {ESTADO_OPTIONS_CXP.map(o => <option key={o}>{o}</option>)}

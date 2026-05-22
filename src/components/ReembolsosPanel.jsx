@@ -11,8 +11,9 @@ import { useState, useMemo, useRef } from 'react'
 import * as XLSX from 'xlsx'
 import { parseMonthSheet, MONTHS, formatCOP, isMonthSheet, monthSheetIndex } from '../utils/excelParser'
 import { parseReembolsosFile } from '../utils/reembolsosParser'
+import { parseMonthSheetGuatemala } from '../utils/guatemalaParser'
 
-function ReembolsosPanel({ workbook, onApplyReembolsos }) {
+function ReembolsosPanel({ workbook, onApplyReembolsos, isGuatemalaFormat = false }) {
   // ── Archivo de formato ──────────────────────────────────────
   const [formatoData, setFormatoData]     = useState(null)   // { sheetName, dataRows }
   const [formatoFileName, setFormatoFileName] = useState('')
@@ -34,9 +35,11 @@ function ReembolsosPanel({ workbook, onApplyReembolsos }) {
   const subsections = useMemo(() => {
     if (!workbook || !targetMonth || !workbook.Sheets[targetMonth]) return []
     const rows   = XLSX.utils.sheet_to_json(workbook.Sheets[targetMonth], { header: 1, defval: '' })
-    const parsed = parseMonthSheet(rows)
+    const parsed = isGuatemalaFormat
+      ? parseMonthSheetGuatemala(rows)
+      : parseMonthSheet(rows)
     return parsed?.sectionCXP ?? []
-  }, [workbook, targetMonth])
+  }, [workbook, targetMonth, isGuatemalaFormat])
 
   // Resetear idx cuando cambian las subsecciones
   const prevMonthRef = useRef(targetMonth)
@@ -101,6 +104,11 @@ function ReembolsosPanel({ workbook, onApplyReembolsos }) {
     const lastRow = sub.rows[sub.rows.length - 1]._row
     const now     = Date.now()
 
+    // Colombia/Global: Proveedor=col D(3), Valor=col E(4)
+    // Guatemala/CR/Perú: Proveedor=col C(2), Valor=col D(3)
+    const colDesc  = isGuatemalaFormat ? 2 : 3
+    const colValor = isGuatemalaFormat ? 3 : 4
+
     const insertions = formatoData.dataRows
       .filter((_, i) => selected[i])
       .map((row, i) => ({
@@ -108,8 +116,8 @@ function ReembolsosPanel({ workbook, onApplyReembolsos }) {
         insertAfterRow: lastRow,
         sectionKey:     `cxp:${sub.title}`,
         cells: {
-          3: row.generatedDesc,          // Proveedor / Concepto
-          ...(row.valorAPagar ? { 4: row.valorAPagar } : {}),  // Valor
+          [colDesc]: row.generatedDesc,
+          ...(row.valorAPagar ? { [colValor]: row.valorAPagar } : {}),
         },
       }))
 
@@ -119,7 +127,7 @@ function ReembolsosPanel({ workbook, onApplyReembolsos }) {
 
   // ── Formato de número COP simple ───────────────────────────
   const fmtCOP = n =>
-    Number(n).toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })
+    '$ ' + Number(n).toLocaleString('es-CO', { maximumFractionDigits: 0 })
 
   // ── Render ──────────────────────────────────────────────────
   return (
