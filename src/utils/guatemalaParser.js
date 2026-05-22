@@ -111,9 +111,12 @@ function parseCXPGuatemala(rows, startIdx, endIdx) {
 
     if (!c1 && !c2) continue     // fila completamente vacía
 
-    // Cabecera de subsección: col B vacía, col C con nombre,
-    //                          sin fecha y sin estado
+    // Cabecera de subsección: col B vacía, col C con nombre en MAYÚSCULAS,
+    //                          sin fecha y sin estado.
+    // El check de mayúsculas excluye filas de reembolso ('Reembolso nombre empresa')
+    // que también tienen fecha/estado vacíos pero tienen minúsculas en el nombre.
     const isHeader = !c5 && !c6 && c2 && !String(c1 || '').trim()
+                     && c2 === c2.toUpperCase() && /[A-ZÁÉÍÓÚÑÜ]/.test(c2)
 
     if (isHeader) {
       // Normalizar para búsqueda robusta (sin tildes)
@@ -131,8 +134,11 @@ function parseCXPGuatemala(rows, startIdx, endIdx) {
       sections.push(current)
 
     } else if (current) {
-      // Fila de datos: necesita fecha, estado, o referencia en col B
-      if (c5 || c6 || c1) {
+      // Fila de datos: tiene fecha, estado, o referencia en col B;
+      // o bien tiene proveedor en col C con valor numérico en col D
+      // (caso de filas de reembolso: sin fecha/estado/ref pero con desc+valor)
+      const hasQtq = typeof r[GT_CXP_COL.qtq] === 'number'
+      if (c5 || c6 || c1 || (c2 && hasQtq)) {
         const fechaRaw = r[GT_CXP_COL.fecha]
         current.rows.push({
           _row:  i,
